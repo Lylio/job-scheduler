@@ -2,6 +2,11 @@
 
 A Spring Boot / Quartz application with a React operations dashboard. Create recurring tasks, trigger manual runs, inspect successes and failures, and pause schedules without losing execution history.
 
+## Dashboard Preview
+
+<img width="2530" height="1228" alt="image" src="https://github.com/user-attachments/assets/18ec3e0a-18a3-4bf7-b4e1-a09e8db0762e" />
+
+
 ## Start the complete application
 
 Requires Docker Desktop or Docker Engine with the Compose plugin. From this directory:
@@ -25,6 +30,8 @@ docker compose down
 ```
 
 The database volume survives `down`. **`docker compose down -v` deletes the database and all history.**
+
+## Screenshot
 
 ## Try the first milestone
 
