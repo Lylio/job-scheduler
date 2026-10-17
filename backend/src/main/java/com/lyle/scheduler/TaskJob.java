@@ -11,7 +11,7 @@ public class TaskJob implements Job {
   var task=tasks.findById(id).orElseThrow();
   var source=context.getMergedJobDataMap().getString("source");
   var run=recorder.start(task, source==null?"SCHEDULED":source);
-  try { recorder.finish(run.id,"SUCCESS",runner.run(task.taskType)); }
+  try { recorder.finish(run.id,runner.run(task)); }
   catch(InterruptedException e) {
    Thread.currentThread().interrupt(); recorder.finish(run.id,"INTERRUPTED","Execution interrupted.");
   } catch(Exception e) {

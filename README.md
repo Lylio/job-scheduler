@@ -4,8 +4,7 @@ A Spring Boot / Quartz application with a React operations dashboard. Create rec
 
 ## Dashboard Preview
 
-<img width="2530" height="1228" alt="image" src="https://github.com/user-attachments/assets/18ec3e0a-18a3-4bf7-b4e1-a09e8db0762e" />
-
+![img.png](img.png)
 
 ## Start the complete application
 
@@ -15,14 +14,14 @@ Requires Docker Desktop or Docker Engine with the Compose plugin. From this dire
 docker compose up --build -d
 ```
 
-Open **http://localhost:3002**. The first image build downloads dependencies and runs the backend tests. The dashboard may briefly show a connection error while the backend finishes starting; it refreshes automatically.
+Open **http://localhost:23473**. The first image build downloads dependencies and runs the backend tests. The dashboard may briefly show a connection error while the backend finishes starting; it refreshes automatically.
 
-- Dashboard: http://localhost:3002
-- Backend API: http://localhost:8082/api/jobs
-- Backend health: http://localhost:8082/actuator/health
-- PostgreSQL: localhost:5434 (database/user `scheduler`, development password `scheduler_dev`)
+- Dashboard: http://localhost:23473
+- Backend API: http://localhost:28473/api/jobs
+- Backend health: http://localhost:28473/actuator/health
+- PostgreSQL: localhost:25473 (database/user `scheduler`, development password `scheduler_dev`)
 
-Ports 3002/8082/5434 help avoid clashes with existing projects. All host ports bind to loopback. This is a local development application with no authentication; don't expose it publicly.
+Ports 23473/28473/25473 help avoid clashes with existing projects. All host ports bind to loopback. This is a local development application with no authentication; don't expose it publicly.
 
 ```bash
 docker compose logs -f backend
@@ -30,8 +29,6 @@ docker compose down
 ```
 
 The database volume survives `down`. **`docker compose down -v` deletes the database and all history.**
-
-## Screenshot
 
 ## Try the first milestone
 
@@ -42,7 +39,10 @@ The database volume survives `down`. **`docker compose down -v` deletes the data
 5. Pause a job: its next execution disappears. Resume it to restore the schedule.
 6. Restart the backend. Definitions/history remain, schedules are reconstructed from PostgreSQL.
 
-The tasks are simulations. They do not generate actual business reports, remove files, or import customer data. Adding real task implementations is the next extension point (`TaskType` and `TaskRunner`).
+The three demo task types simulate successful, slow, and failed work.
+HTTP_HEALTH_CHECK performs real GET requests against configured endpoints
+and records their HTTP status and response time.
+See [HTTP health checks](README_HTTP_CHECKS.md) for configuration details.
 
 ## Implemented
 
@@ -55,6 +55,7 @@ The tasks are simulations. They do not generate actual business reports, remove 
 - Activity chart and summary statistics explicitly scoped to the latest 200 executions.
 - Startup reconciliation: interrupted executions are marked INTERRUPTED; persisted definitions rebuild schedules.
 - Integration tests and GitHub Actions CI.
+- Configurable HTTP health checks with expected status codes, timeouts, response times, and diagnostic error categories.
 
 ## Architecture and deliberate boundaries
 
@@ -75,7 +76,7 @@ Recording start and finish happens in separate committed transactions. If the pr
 
 Europe/London is the default per-job timezone and the dashboard display timezone; the API stores instants. Quartz interprets cron in each job's timezone, including daylight-saving transitions. Expressions use **Quartz syntax** (seconds first), not five-field Unix cron.
 
-Automatic retries, editing/deleting jobs, authentication, HTTP checks, distributed workers, alerting, durable Quartz JDBC queues, and history retention are future milestones. The first version offers manual reruns of enabled jobs.
+Automatic retries, editing/deleting jobs, authentication, distributed workers, alerting, durable Quartz JDBC queues, and history retention are future milestones. The first version offers manual reruns of enabled jobs.
 
 ## Local development without containerizing the applications
 
@@ -95,7 +96,7 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:5173. Vite proxies `/api` to localhost:8080. The backend's default datasource uses localhost:5434. Database settings can be overridden with `DB_URL`, `DB_USER`, `DB_PASSWORD`; disable seeding with `SEED_DEMO_JOBS=false`.
+Open http://localhost:5173. Vite proxies `/api` to localhost:8080. The backend's default datasource uses localhost:25473. Database settings can be overridden with `DB_URL`, `DB_USER`, `DB_PASSWORD`; disable seeding with `SEED_DEMO_JOBS=false`.
 
 ## Verification
 
@@ -118,13 +119,18 @@ Backend integration tests use H2 in PostgreSQL compatibility mode and real Quart
 | GET | `/api/executions?limit=50&jobId=...` | Recent executions, optional job filter; limit 1–200 |
 
 ```bash
-curl -i -X POST http://localhost:8082/api/jobs \
+curl -i -X POST http://localhost:28473/api/jobs \
   -H 'Content-Type: application/json' \
   -d '{"name":"Evening demo report","taskType":"REPORT_DEMO","cronExpression":"0 0 21 * * ?","zoneId":"Europe/London"}'
 ```
 
-Task types: `REPORT_DEMO` (~1.8 seconds), `SLOW_DEMO` (~12 seconds), `FAILURE_DEMO` (~1.2 seconds, intentional failure). No arbitrary scripts or user-supplied executable code are run.
+Task types: `REPORT_DEMO` (~1.8 seconds), `SLOW_DEMO` (~12 seconds),
+`FAILURE_DEMO` (~1.2 seconds, intentional failure), and
+`HTTP_HEALTH_CHECK` (real HTTP endpoint monitoring).
+No arbitrary scripts or user-supplied executable code are run.
 
-## Next milestone
+## Possible future enhancements
 
-Add a real task implementation, job editing, focused PostgreSQL container tests, and a bounded retry policy with per-attempt history. Introduce Quartz JDBC persistence before considering multiple scheduler instances.
+Job editing, PostgreSQL Testcontainers tests, bounded automatic retries,
+and history retention. Quartz JDBC persistence could support a future
+move towards clustered scheduling.

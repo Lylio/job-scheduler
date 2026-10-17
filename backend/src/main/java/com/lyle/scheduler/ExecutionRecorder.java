@@ -11,8 +11,12 @@ public class ExecutionRecorder {
   return executions.saveAndFlush(new Execution(task,source));
  }
  @Transactional public void finish(UUID id,String status,String message) {
+  finish(id,new TaskResult(status,message,null,null,null));
+ }
+ @Transactional public void finish(UUID id,TaskResult result) {
   var run=executions.findById(id).orElseThrow();
-  run.status=status; run.message=message; run.finishedAt=Instant.now();
+  run.status=result.status(); run.message=result.message(); run.finishedAt=Instant.now();
+  run.httpStatus=result.httpStatus();run.responseTimeMs=result.responseTimeMs();run.errorCategory=result.errorCategory();
   run.durationMs=Duration.between(run.startedAt,run.finishedAt).toMillis();
  }
  @Transactional public void recoverInterrupted() {

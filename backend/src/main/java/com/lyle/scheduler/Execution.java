@@ -13,9 +13,15 @@ public class Execution {
  public Instant finishedAt;
  public Long durationMs;
  @Column(length=2000) public String message;
+ @Column(length=1000) public String targetUrl;
+ public Integer expectedStatus;
+ public Integer httpStatus;
+ public Long responseTimeMs;
+ @Column(length=40) public String errorCategory;
  protected Execution() {}
  public Execution(ScheduledTask job, String source) {
   id=UUID.randomUUID(); jobId=job.id; jobName=job.name;
   status="RUNNING"; this.source=source; startedAt=Instant.now();
+  targetUrl=job.targetUrl; expectedStatus=job.expectedStatus;
  }
 }

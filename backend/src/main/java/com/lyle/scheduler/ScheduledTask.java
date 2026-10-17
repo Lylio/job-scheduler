@@ -11,6 +11,9 @@ public class ScheduledTask {
  @Column(nullable=false, length=80) public String zoneId;
  @Column(nullable=false) public boolean enabled;
  @Column(nullable=false) public Instant createdAt;
+ @Column(length=1000) public String targetUrl;
+ public Integer expectedStatus;
+ public Integer timeoutSeconds;
  protected ScheduledTask() {}
  public ScheduledTask(String name, TaskType type, String cron, String zone) {
   id=UUID.randomUUID(); this.name=name; taskType=type; cronExpression=cron;

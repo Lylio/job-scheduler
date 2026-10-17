@@ -4,7 +4,7 @@ import './style.css';
 const zone='Europe/London';
 const time=value=>value ? new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeStyle:'medium',timeZone:zone}).format(new Date(value)) : '—';
 const duration=value=>value==null?'—':value<1000?`${value} ms`:`${(value/1000).toFixed(1)} s`;
-const labels={REPORT_DEMO:'Sample report',SLOW_DEMO:'Slow processing',FAILURE_DEMO:'Intentional failure'};
+const labels={HTTP_HEALTH_CHECK:'HTTP health check',REPORT_DEMO:'Sample report',SLOW_DEMO:'Slow processing',FAILURE_DEMO:'Intentional failure'};
 async function api(path, options={}) {
  const response=await fetch('/api'+path,{...options,headers:{'Content-Type':'application/json',...options.headers}});
  if(!response.ok) { const data=await response.json().catch(()=>({})); throw new Error(data.detail||data.message||`Request failed (${response.status})`); }
@@ -54,13 +54,13 @@ function App() {
    </div></>}
    {page!=='Execution History'&&<section className="panel"><div className="panel-heading"><div><h2>Scheduled jobs <span className="count">{jobs.length}</span></h2><p>Quartz cron schedules · each job uses its configured timezone</p></div><span className="live"><span className="dot"/> LIVE</span></div>
     <div className="table-scroll"><table><thead><tr><th>Job name</th><th>Schedule</th><th>Last execution</th><th>Next run</th><th>Actions</th></tr></thead><tbody>
-     {jobs.map(job=><tr key={job.id}><td><strong>{job.name}</strong><small>{labels[job.taskType]} {!job.enabled&&'· Paused'}</small></td><td><code>{job.cronExpression}</code><small>{job.zoneId}</small></td><td><Badge status={job.lastExecution?.status}/></td><td className="date">{time(job.nextRun)}</td><td><div className="actions"><button disabled={!job.enabled||pending===job.id} onClick={()=>action(job.id,'run')}>▷ Run now</button><button disabled={pending===job.id} onClick={()=>action(job.id,'enabled',{enabled:!job.enabled})}>{job.enabled?'Pause':'Resume'}</button></div></td></tr>)}
+     {jobs.map(job=><tr key={job.id}><td><strong>{job.name}</strong><small>{labels[job.taskType]} {!job.enabled&&'· Paused'}</small>{job.targetUrl&&<small className="target-url" title={job.targetUrl}>{job.targetUrl}</small>}</td><td><code>{job.cronExpression}</code><small>{job.zoneId}</small></td><td><Badge status={job.lastExecution?.status}/>{job.taskType==='HTTP_HEALTH_CHECK'&&<small>{job.lastExecution?.httpStatus!=null?`HTTP ${job.lastExecution.httpStatus}`:'No response yet'}{job.lastExecution?.responseTimeMs!=null&&` · ${job.lastExecution.responseTimeMs} ms`}</small>}</td><td className="date">{time(job.nextRun)}</td><td><div className="actions"><button disabled={!job.enabled||pending===job.id} onClick={()=>action(job.id,'run')}>▷ Run now</button><button disabled={pending===job.id} onClick={()=>action(job.id,'enabled',{enabled:!job.enabled})}>{job.enabled?'Pause':'Resume'}</button></div></td></tr>)}
     </tbody></table>{jobs.length===0&&<div className="empty">No jobs yet. Create your first scheduled task.</div>}</div>
    </section>}
    {page==='Overview'&&<div className="bottom-grid"><section className="panel"><div className="panel-heading"><h2>Recent executions</h2><button className="text-button" onClick={()=>setPage('Execution History')}>View history →</button></div><RunTable runs={recent} select={setSelected}/></section><Activity runs={runs}/></div>}
    {page==='Execution History'&&<section className="panel"><div className="panel-heading"><div><h2>Execution log</h2><p>Latest 200 runs. Select a row to inspect its result.</p></div><select aria-label="Filter status" value={filter} onChange={e=>setFilter(e.target.value)}>{['ALL','RUNNING','SUCCESS','FAILED','INTERRUPTED'].map(s=><option key={s}>{s}</option>)}</select></div><RunTable runs={visible} select={setSelected}/></section>}
    </>}
-   <div className="demo-note"><strong>Demo task types</strong> Report and slow tasks simulate successful work. The failing import deliberately throws an error so you can inspect a failure. No real files or business data are changed.</div>
+   <div className="demo-note"><strong>HTTP health checks</strong> Monitor real endpoints by status and response time. Demo tasks remain available for practising success and failure handling.</div>
    </main><footer><span><span className={`dot ${error?'offline':''}`}/>{error?'Connection unavailable':'Auto-refresh every 3 seconds'}</span><span>Updated {updated?updated.toLocaleTimeString('en-GB',{timeZone:zone}):'—'} · Europe/London</span></footer>
   </div>
   {modal&&<CreateJob close={()=>setModal(false)} saved={async()=>{setModal(false);setNotice('Job created and scheduled.');await refresh();}}/>}
@@ -68,7 +68,7 @@ function App() {
  </div>;
 }
 function Stat({label,value,note,icon,danger}){return <div className="stat"><span className={`stat-icon ${danger?'red':''}`}>{icon}</span><div><p>{label}</p><strong>{value}</strong><small>{note}</small></div></div>;}
-function RunTable({runs,select}){return <div className="table-scroll"><table><thead><tr><th>Job</th><th>Status</th><th>Started</th><th>Duration</th><th/></tr></thead><tbody>{runs.map(r=><tr key={r.id}><td><strong>{r.jobName}</strong><small>{r.source}</small></td><td><Badge status={r.status}/></td><td className="date">{time(r.startedAt)}</td><td>{duration(r.durationMs)}</td><td><button className="text-button" onClick={()=>select(r)} aria-label={`Details for ${r.jobName} at ${time(r.startedAt)}`}>Details</button></td></tr>)}</tbody></table>{runs.length===0&&<div className="empty">No executions yet. Use “Run now” or wait for a schedule.</div>}</div>;}
+function RunTable({runs,select}){return <div className="table-scroll"><table><thead><tr><th>Job</th><th>Status</th><th>Started</th><th>Duration</th><th/></tr></thead><tbody>{runs.map(r=><tr key={r.id}><td><strong>{r.jobName}</strong><small>{r.source}</small></td><td><Badge status={r.status}/>{r.httpStatus!=null&&<small>HTTP {r.httpStatus} · {r.responseTimeMs} ms</small>}{r.errorCategory&&r.errorCategory!=='HTTP_STATUS'&&<small>{r.errorCategory}</small>}</td><td className="date">{time(r.startedAt)}</td><td>{duration(r.durationMs)}</td><td><button className="text-button" onClick={()=>select(r)} aria-label={`Details for ${r.jobName} at ${time(r.startedAt)}`}>Details</button></td></tr>)}</tbody></table>{runs.length===0&&<div className="empty">No executions yet. Use “Run now” or wait for a schedule.</div>}</div>;}
 function Activity({runs}){
  const groups=Array.from({length:7},(_,i)=>{const date=new Date(Date.now()-(6-i)*86400000);const key=new Intl.DateTimeFormat('en-CA',{timeZone:zone}).format(date);const day=runs.filter(r=>new Intl.DateTimeFormat('en-CA',{timeZone:zone}).format(new Date(r.startedAt))===key);return {label:new Intl.DateTimeFormat('en-GB',{weekday:'short',timeZone:zone}).format(date),success:day.filter(r=>r.status==='SUCCESS').length,failed:day.filter(r=>r.status==='FAILED').length};});
  const max=Math.max(1,...groups.map(g=>g.success+g.failed));
@@ -79,15 +79,20 @@ function Dialog({title,close,children}){
  useEffect(()=>{const dialog=ref.current;dialog.showModal();return()=>dialog.close();},[]);
  return <dialog ref={ref} onCancel={close} onClick={e=>{if(e.target===ref.current)close();}}><div className="dialog-heading"><h2>{title}</h2><button onClick={close} aria-label="Close dialog">✕</button></div>{children}</dialog>;
 }
-function ExecutionDetails({run}){return <><dl><dt>Execution ID</dt><dd className="mono">{run.id}</dd><dt>Started</dt><dd>{time(run.startedAt)}</dd><dt>Finished</dt><dd>{time(run.finishedAt)}</dd><dt>Duration</dt><dd>{duration(run.durationMs)}</dd><dt>Triggered by</dt><dd>{run.source}</dd></dl><h4>Result / error</h4><pre>{run.message||'Task is still running…'}</pre></>;}
+function ExecutionDetails({run}){return <><dl><dt>Execution ID</dt><dd className="mono">{run.id}</dd><dt>Started</dt><dd>{time(run.startedAt)}</dd><dt>Finished</dt><dd>{time(run.finishedAt)}</dd><dt>Duration</dt><dd>{duration(run.durationMs)}</dd><dt>Triggered by</dt><dd>{run.source}</dd>{run.targetUrl&&<><dt>Target URL</dt><dd className="mono">{run.targetUrl}</dd><dt>Expected HTTP</dt><dd>{run.expectedStatus}</dd><dt>Actual HTTP</dt><dd>{run.httpStatus??'No response'}</dd><dt>Response time</dt><dd>{run.responseTimeMs==null?'—':`${run.responseTimeMs} ms (headers)`}</dd>{run.errorCategory&&<><dt>Error category</dt><dd>{run.errorCategory}</dd></>}</>}</dl><h4>Result / error</h4><pre>{run.message||'Task is still running…'}</pre></>;}
 function CreateJob({close,saved}){
- const [form,setForm]=useState({name:'',taskType:'REPORT_DEMO',cronExpression:'0 */5 * * * ?',zoneId:'Europe/London'}),[error,setError]=useState(''),[saving,setSaving]=useState(false);
+ const [form,setForm]=useState({name:'',taskType:'HTTP_HEALTH_CHECK',cronExpression:'0 */5 * * * ?',zoneId:'Europe/London',targetUrl:'',expectedStatus:200,timeoutSeconds:5}),[error,setError]=useState(''),[saving,setSaving]=useState(false);
  function change(e){setForm({...form,[e.target.name]:e.target.value});}
- async function submit(e){e.preventDefault();setSaving(true);setError('');try{await api('/jobs',{method:'POST',body:JSON.stringify(form)});await saved();}catch(e){setError(e.message);}finally{setSaving(false);}}
+ async function submit(e){e.preventDefault();setSaving(true);setError('');try{await api('/jobs',{method:'POST',body:JSON.stringify({...form,...(form.taskType==='HTTP_HEALTH_CHECK'?{expectedStatus:Number(form.expectedStatus),timeoutSeconds:Number(form.timeoutSeconds)}:{targetUrl:null,expectedStatus:null,timeoutSeconds:null})})});await saved();}catch(e){setError(e.message);}finally{setSaving(false);}}
  return <Dialog title="Create scheduled job" close={()=>{if(!saving)close();}}><form onSubmit={submit}>
-  <p>Choose a demo task and tell Quartz when to run it.</p>{error&&<div className="alert error" role="alert">{error}</div>}
-  <label>Job name<input autoFocus required maxLength={100} name="name" value={form.name} onChange={change} placeholder="e.g. Evening report"/></label>
+  <p>Choose an HTTP health check or a demo task, then set its schedule.</p>{error&&<div className="alert error" role="alert">{error}</div>}
+  <label>Job name<input autoFocus required maxLength={100} name="name" value={form.name} onChange={change} placeholder="e.g. Music website health"/></label>
   <label>Task type<select name="taskType" value={form.taskType} onChange={change}>{Object.entries(labels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+  {form.taskType==='HTTP_HEALTH_CHECK'&&<div className="http-fields">
+   <label>Target URL<input type="url" required maxLength={1000} name="targetUrl" value={form.targetUrl} onChange={change} placeholder="https://www.lylechristine.com/"/></label>
+   <div className="http-options"><label>Expected HTTP status<input type="number" required min={100} max={599} name="expectedStatus" value={form.expectedStatus} onChange={change}/></label><label>Timeout (seconds)<input type="number" required min={1} max={30} name="timeoutSeconds" value={form.timeoutSeconds} onChange={change}/></label></div>
+   <small>A GET request checks the response status and time to headers. Redirects are reported, so use the final URL. Timeout: 1–30 seconds.</small>
+  </div>}
   <label>Quartz cron expression<input required maxLength={100} name="cronExpression" className="mono" value={form.cronExpression} onChange={change}/></label>
   <div className="presets">{[['Every minute','0 * * * * ?'],['Every 5 minutes','0 */5 * * * ?'],['Daily 21:00','0 0 21 * * ?']].map(([label,value])=><button type="button" key={label} onClick={()=>setForm({...form,cronExpression:value})}>{label}</button>)}</div>
   <small>Six fields: second, minute, hour, day, month, weekday. Quartz uses “?” for an unspecified day field.</small>
